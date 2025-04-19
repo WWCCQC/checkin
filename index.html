@@ -123,7 +123,7 @@
         window.onload = function() {
             const months = [
                 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-                'กรกฎาคม',#8216;สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
             ];
             const now = new Date();
             const day = now.getDate();
@@ -131,10 +131,14 @@
             const year = now.getFullYear() + 543; // แปลงเป็น พ.ศ.
             document.getElementById('date').textContent = `${day} ${month} ${year}`;
 
-            // โหลดข้อมูลไอดีช่างและชื่อช่าง
-            fetch('https://script.google.com/macros/s/AKfycbyp9I1-8_7725qTNP4QP5LRr8o1jPjXBuay1SbDUGpRlRs_Cr0QDXfe3qEOgwzkCXookQ/exec?type=getTechnicians', {
-                method: 'GET',
-                mode: 'cors'
+            // โหลดข้อมูลไอดีช่างและชื่อช่างโดยใช้ POST
+            fetch('https://script.google.com/macros/s/AKfycbyp9I1-8_7725qTNP4QP5LRr8o1jPjXBuay1SbDUGpRlRs_Cr0QDXfe3qEOgwzkCXookQ/exec', {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: 'getTechnicians' })
             })
             .then(response => {
                 if (!response.ok) {
@@ -149,7 +153,7 @@
                         showStatus('ไม่มีข้อมูลช่างในระบบ กรุณาตรวจสอบ sheet TechID', 'error');
                     }
                 } else {
-                    showStatus('ข้อมูลช่างไม่ถูกต้อง กรุณาตรวจสอบ Google Apps Script', 'error');
+                    showStatus('ข้อมูลช่างไม่ถูกต้อง: ' + (data.message || 'ไม่ทราบสาเหตุ'), 'error');
                 }
             })
             .catch(error => {
@@ -160,6 +164,11 @@
         function updateTechnicianName() {
             const technicianId = document.getElementById('technicianId').value.trim();
             const technicianNameInput = document.getElementById('technicianName');
+            if (!technicianId) {
+                technicianNameInput.value = '';
+                return;
+            }
+
             const technician = technicianData.find(tech => tech.id.toLowerCase() === technicianId.toLowerCase());
             if (technician) {
                 technicianNameInput.value = technician.name;
@@ -222,11 +231,12 @@
         function sendToGoogleSheet(technicianId, technicianName, status, date, time, latitude, longitude) {
             fetch('https://script.google.com/macros/s/AKfycbyp9I1-8_7725qTNP4QP5LRr8o1jPjXBuay1SbDUGpRlRs_Cr0QDXfe3qEOgwzkCXookQ/exec', {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    action: 'checkIn',
                     technicianId: technicianId,
                     technicianName: technicianName,
                     status: status,
@@ -236,11 +246,21 @@
                     longitude: longitude
                 })
             })
-            .then(() => {
-                showStatus(`เช็คอินสำเร็จ: ${technicianName} (${date} ${time}) สถานะ: ${status}`, 'success');
-                document.getElementById('technicianId').value = '';
-                document.getElementById('technicianName').value = '';
-                document.querySelectorAll('input[name="status"]').forEach(checkbox => checkbox.checked = false);
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('การตอบสนองจากเซิร์ฟเวอร์ไม่สำเร็จ: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    showStatus(`เช็คอินสำเร็จ: ${technicianName} (${date} ${time}) สถานะ: ${status}`, 'success');
+                    document.getElementById('technicianId').value = '';
+                    document.getElementById('technicianName').value = '';
+                    document.querySelectorAll('input[name="status"]').forEach(checkbox => checkbox.checked = false);
+                } else {
+                    showStatus('เกิดข้อผิดพลาดในการเช็คอิน: ' + (data.message || 'ไม่ทราบสาเหตุ'), 'error');
+                }
             })
             .catch(error => {
                 showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
