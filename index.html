@@ -90,6 +90,7 @@
 <body>
     <div class="container">
         <h1>ระบบเช็คอินช่าง</h1>
+        <p id="currentDate" style="color: #555; margin-bottom: 1.5rem;"></p>
         <div class="input-group">
             <label for="technicianId">ไอดีช่างที่รับงาน</label>
             <input type="text" id="technicianId" oninput="updateTechnicianName()" required>
@@ -101,7 +102,6 @@
         <div class="status-group">
             <label>สถานะ:</label>
             <input type="checkbox" id="working" name="status" value="ทำงาน" onchange="handleStatusChange(this)"> ทำงาน
-            <input type="checkbox" id="leave" name="status" value="ลา" onchange="handleStatusChange(this)"> ลา
             <input type="checkbox" id="holiday" name="status" value="วันหยุด" onchange="handleStatusChange(this)"> วันหยุด
         </div>
         <div class="button-container">
@@ -115,6 +115,11 @@
 
         // โหลดข้อมูลไอดีช่างและชื่อช่างเมื่อหน้าเว็บโหลด
         window.onload = function() {
+            // แสดงวันที่ปัจจุบัน
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = 'วันที่: ' + today.toLocaleDateString('th-TH', options);
+
             fetch('https://script.google.com/macros/s/AKfycbyp9I1-8_7725qTNP4QP5LRr8o1jPjXBuay1SbDUGpRlRs_Cr0QDXfe3qEOgwzkCXookQ/exec?type=getTechnicians', {
                 method: 'GET',
                 mode: 'cors'
@@ -157,7 +162,13 @@
             const status = document.querySelector('input[name="status"]:checked');
             const statusDiv = document.getElementById('status');
 
-            if (!technicianId || !technicianName || !status) {
+            // ตรวจสอบสถานะที่เลือก - ตรวจสอบให้แน่ใจว่า checkbox ที่เหลืออย่างน้อยหนึ่งอันถูกเลือก
+            if (!status) {
+                showStatus('กรุณาเลือกสถานะ', 'error');
+                return;
+            }
+
+            if (!technicianId || !technicianName) {
                 showStatus('ท่านกรอกข้อมูลไม่ครบ', 'error');
                 return;
             }
