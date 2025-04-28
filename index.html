@@ -93,11 +93,11 @@
         <p id="currentDate" style="color: #555; margin-bottom: 1.5rem;"></p>
         <div class="input-group">
             <label for="technicianJobId">ไอดีช่างที่รับงาน (6 หลัก)</label>
-            <input type="text" id="technicianJobId" name="technicianJobId" pattern="\d{6}" maxlength="6" oninput="updateTechnicianDetails()" required>
+            <input type="text" id="technicianJobId" name="technicianJobId" pattern="\d{6}" maxlength="6" oninput="validateAndShowName()" required>
         </div>
         <div class="input-group">
             <label for="technicianIdCard">เลข 4 หลักท้ายบัตรประชาชน</label>
-            <input type="text" id="technicianIdCard" readonly>
+            <input type="text" id="technicianIdCard" pattern="\d{4}" maxlength="4" oninput="validateAndShowName()" required>
         </div>
         <div class="input-group">
             <label for="technicianName">ชื่อช่าง</label>
@@ -144,23 +144,27 @@
             });
         };
 
-        function updateTechnicianDetails() {
+        function validateAndShowName() {
             const technicianJobId = document.getElementById('technicianJobId').value.trim();
-            const technicianIdCardInput = document.getElementById('technicianIdCard');
+            const technicianIdCard = document.getElementById('technicianIdCard').value.trim();
             const technicianNameInput = document.getElementById('technicianName');
 
-            technicianIdCardInput.value = '';
+            // ล้างชื่อทุกครั้งที่มีการเปลี่ยนแปลง
             technicianNameInput.value = '';
 
-            if (technicianJobId.length === 6) {
-                const technician = technicianData.find(tech => tech.jobId === technicianJobId);
+            // ตรวจสอบเมื่อกรอกครบทั้ง 2 ฟิลด์เท่านั้น
+            if (technicianJobId.length === 6 && technicianIdCard.length === 4) {
+                const technician = technicianData.find(tech => 
+                    tech.jobId === technicianJobId && tech.id === technicianIdCard
+                );
+
                 if (technician) {
-                    technicianIdCardInput.value = technician.id;
-                    technicianNameInput.value = technician.name;
+                    technicianNameInput.value = technician.name; // แสดงชื่อ
+                    clearStatus(); // ล้างข้อความ error ถ้ามี
                 } else {
-                    showStatus('ไม่พบไอดีช่างที่รับงานนี้ในระบบ', 'error');
+                    // ไม่พบข้อมูลที่ตรงกัน
+                    showStatus('ข้อมูลไอดีช่างที่รับงาน หรือ เลขท้ายบัตร ไม่ถูกต้อง', 'error');
                 }
-            } else if (technicianJobId.length > 0) {
             }
         }
 
@@ -185,9 +189,16 @@
                 return;
             }
 
+            // ตรวจสอบว่าข้อมูลช่างครบถ้วน และ ชื่อถูกแสดงผลแล้ว (ผ่านการ validate)
             if (!technicianJobId || !technicianIdCard || !technicianName) {
-                showStatus('กรุณากรอกไอดีช่างที่รับงานให้ถูกต้อง หรือรอข้อมูลโหลด', 'error');
+                showStatus('กรุณากรอกข้อมูลไอดีและเลขท้ายบัตรให้ถูกต้อง หรือรอข้อมูลโหลด', 'error');
                 return;
+            }
+
+            // ตรวจสอบเพิ่มเติมว่า ชื่อช่าง ไม่ใช่ค่าว่างเปล่า (ซึ่งหมายถึง validation ผ่านแล้ว)
+            if (technicianName === '') {
+                 showStatus('ข้อมูลไอดีช่างที่รับงาน หรือ เลขท้ายบัตร ไม่ถูกต้อง โปรดตรวจสอบ', 'error');
+                 return;
             }
 
             const now = new Date();
@@ -253,6 +264,12 @@
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 5000);
+        }
+
+        function clearStatus() {
+             const statusDiv = document.getElementById('status');
+             statusDiv.textContent = '';
+             statusDiv.style.display = 'none';
         }
     </script>
 </body>
