@@ -92,8 +92,12 @@
         <h1>ระบบเช็คอินช่าง</h1>
         <p id="currentDate" style="color: #555; margin-bottom: 1.5rem;"></p>
         <div class="input-group">
-            <label for="technicianId">กรุณากรอกเลข 6 หลักท้ายบัตรประชาชน</label>
-            <input type="text" id="technicianId" oninput="updateTechnicianName()" required>
+            <label for="technicianJobId">ไอดีช่างที่รับงาน (6 หลัก)</label>
+            <input type="text" id="technicianJobId" name="technicianJobId" pattern="\d{6}" maxlength="6" oninput="updateTechnicianDetails()" required>
+        </div>
+        <div class="input-group">
+            <label for="technicianIdCard">เลข 4 หลักท้ายบัตรประชาชน</label>
+            <input type="text" id="technicianIdCard" readonly>
         </div>
         <div class="input-group">
             <label for="technicianName">ชื่อช่าง</label>
@@ -126,24 +130,37 @@
             })
             .then(response => response.json())
             .then(data => {
-                technicianData = data.technicians;
+                if (data && data.technicians) {
+                     technicianData = data.technicians;
+                } else {
+                     console.error("โครงสร้างข้อมูลช่างไม่ถูกต้อง:", data);
+                     showStatus('ไม่สามารถโหลดข้อมูลช่างได้ เนื่องจากรูปแบบข้อมูลไม่ถูกต้อง', 'error');
+                     technicianData = [];
+                }
             })
             .catch(error => {
                 showStatus('ไม่สามารถโหลดข้อมูลช่าง: ' + error.message, 'error');
+                technicianData = [];
             });
         };
 
-        function updateTechnicianName() {
-            const technicianId = document.getElementById('technicianId').value.trim();
+        function updateTechnicianDetails() {
+            const technicianJobId = document.getElementById('technicianJobId').value.trim();
+            const technicianIdCardInput = document.getElementById('technicianIdCard');
             const technicianNameInput = document.getElementById('technicianName');
-            const technician = technicianData.find(tech => tech.id === technicianId);
-            if (technician) {
-                technicianNameInput.value = technician.name;
-            } else {
-                technicianNameInput.value = '';
-                if (technicianId) {
-                    showStatus('ท่านไม่มีชื่อในระบบติดต่อแอดมินร้านเพื่อประสานงานส่วนกลาง', 'error');
+
+            technicianIdCardInput.value = '';
+            technicianNameInput.value = '';
+
+            if (technicianJobId.length === 6) {
+                const technician = technicianData.find(tech => tech.jobId === technicianJobId);
+                if (technician) {
+                    technicianIdCardInput.value = technician.id;
+                    technicianNameInput.value = technician.name;
+                } else {
+                    showStatus('ไม่พบไอดีช่างที่รับงานนี้ในระบบ', 'error');
                 }
+            } else if (technicianJobId.length > 0) {
             }
         }
 
@@ -157,19 +174,19 @@
         }
 
         function checkIn() {
-            const technicianId = document.getElementById('technicianId').value.trim();
-            const technicianName = document.getElementById('technicianName').value;
+            const technicianJobId = document.getElementById('technicianJobId').value.trim();
+            const technicianIdCard = document.getElementById('technicianIdCard').value.trim();
+            const technicianName = document.getElementById('technicianName').value.trim();
             const status = document.querySelector('input[name="status"]:checked');
             const statusDiv = document.getElementById('status');
 
-            // ตรวจสอบสถานะที่เลือก - ตรวจสอบให้แน่ใจว่า checkbox ที่เหลืออย่างน้อยหนึ่งอันถูกเลือก
             if (!status) {
                 showStatus('กรุณาเลือกสถานะ', 'error');
                 return;
             }
 
-            if (!technicianId || !technicianName) {
-                showStatus('ท่านกรอกข้อมูลไม่ครบ', 'error');
+            if (!technicianJobId || !technicianIdCard || !technicianName) {
+                showStatus('กรุณากรอกไอดีช่างที่รับงานให้ถูกต้อง หรือรอข้อมูลโหลด', 'error');
                 return;
             }
 
@@ -177,15 +194,12 @@
             const date = now.toLocaleDateString('th-TH');
             const time = now.toLocaleTimeString('th-TH');
 
-            // ตรวจสอบและขอพิกัด GPS
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const latitude = position.coords.latitude;
                         const longitude = position.coords.longitude;
-
-                        // ส่งข้อมูลไป Google Sheets
-                        sendToGoogleSheet(technicianId, technicianName, status.value, date, time, latitude, longitude);
+                        sendToGoogleSheet(technicianJobId, technicianIdCard, technicianName, status.value, date, time, latitude, longitude);
                     },
                     (error) => {
                         showStatus('ไม่สามารถดึงตำแหน่งได้: ' + error.message, 'error');
@@ -201,7 +215,7 @@
             }
         }
 
-        function sendToGoogleSheet(technicianId, technicianName, status, date, time, latitude, longitude) {
+        function sendToGoogleSheet(technicianJobId, technicianIdCard, technicianName, status, date, time, latitude, longitude) {
             fetch('https://script.google.com/macros/s/AKfycbyp9I1-8_7725qTNP4QP5LRr8o1jPjXBuay1SbDUGpRlRs_Cr0QDXfe3qEOgwzkCXookQ/exec', {
                 method: 'POST',
                 mode: 'no-cors',
@@ -209,7 +223,8 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    technicianId: technicianId,
+                    technicianJobId: technicianJobId,
+                    technicianId: technicianIdCard,
                     technicianName: technicianName,
                     status: status,
                     date: date,
@@ -220,7 +235,8 @@
             })
             .then(() => {
                 showStatus(`เช็คอินสำเร็จ: ${technicianName} (${date} ${time}) สถานะ: ${status}`, 'success');
-                document.getElementById('technicianId').value = '';
+                document.getElementById('technicianJobId').value = '';
+                document.getElementById('technicianIdCard').value = '';
                 document.getElementById('technicianName').value = '';
                 document.querySelectorAll('input[name="status"]').forEach(checkbox => checkbox.checked = false);
             })
